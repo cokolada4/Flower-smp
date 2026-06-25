@@ -23,6 +23,7 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.BlockPhysicsEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.entity.EntityRemoveEvent;
 import org.bukkit.event.entity.ItemDespawnEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -198,24 +199,23 @@ public class FlowerListener implements Listener {
         return false;
     }
 
+    @SuppressWarnings("deprecation")
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onItemDamage(EntityDamageEvent event) {
+    public void onEntityRemove(EntityRemoveEvent event) {
         if (event.getEntity() instanceof Item item) {
             if (isSpecialFlower(item.getItemStack())) {
-                UUID ownerUuid = getFlowerOwner(item.getItemStack());
-                if (ownerUuid != null) {
-                    notifyOwnerOfDestruction(ownerUuid);
-                }
-            }
-        }
-    }
+                EntityRemoveEvent.Cause cause = event.getCause();
+                if (cause == EntityRemoveEvent.Cause.DEATH ||
+                    cause == EntityRemoveEvent.Cause.DESPAWN ||
+                    cause == EntityRemoveEvent.Cause.OUT_OF_WORLD ||
+                    cause == EntityRemoveEvent.Cause.DISCARD ||
+                    cause == EntityRemoveEvent.Cause.EXPLODE) {
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onItemDespawn(ItemDespawnEvent event) {
-        if (isSpecialFlower(event.getEntity().getItemStack())) {
-            UUID ownerUuid = getFlowerOwner(event.getEntity().getItemStack());
-            if (ownerUuid != null) {
-                notifyOwnerOfDestruction(ownerUuid);
+                    UUID ownerUuid = getFlowerOwner(item.getItemStack());
+                    if (ownerUuid != null) {
+                        notifyOwnerOfDestruction(ownerUuid);
+                    }
+                }
             }
         }
     }
@@ -239,10 +239,8 @@ public class FlowerListener implements Listener {
                 player.kick(LegacyComponentSerializer.legacyAmpersand().deserialize(message));
             }, 1L);
         } else {
-            // Player is alive (has a placed flower)
             Location flowerLoc = plugin.getPlacedFlowerLocation(uuid);
             if (flowerLoc != null) {
-                // Respawn on the flower
                 event.setRespawnLocation(flowerLoc.clone().add(0.5, 0.1, 0.5));
             }
         }

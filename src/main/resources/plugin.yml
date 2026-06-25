@@ -1,0 +1,6 @@
+name: FlowerSMP
+version: '1.0'
+main: com.example.flowersmp.FlowerSMP
+api-version: '1.21'
+author: Jules
+description: A plugin for Flower SMP where your life depends on a flower.

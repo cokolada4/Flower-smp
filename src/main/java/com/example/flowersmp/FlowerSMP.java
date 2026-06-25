@@ -28,7 +28,10 @@ public class FlowerSMP extends JavaPlugin {
         saveDefaultConfig();
         loadData();
 
-        getServer().getPluginManager().registerEvents(new FlowerListener(this), this);
+        FlowerListener listener = new FlowerListener(this);
+        getServer().getPluginManager().registerEvents(listener, this);
+        getCommand("lifeflower").setExecutor(new FlowerCommand(this, listener));
+
         getLogger().info("FlowerSMP enabled!");
     }
 
@@ -106,6 +109,10 @@ public class FlowerSMP extends JavaPlugin {
 
     public boolean hasPlacedFlower(UUID uuid) {
         return placedFlowers.containsKey(uuid);
+    }
+
+    public Location getPlacedFlowerLocation(UUID uuid) {
+        return placedFlowers.get(uuid);
     }
 
     public void setFlowerPlaced(UUID uuid, Location loc) {

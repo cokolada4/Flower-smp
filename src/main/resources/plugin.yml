@@ -4,3 +4,8 @@ main: com.example.flowersmp.FlowerSMP
 api-version: '1.21'
 author: Jules
 description: A plugin for Flower SMP where your life depends on a flower.
+commands:
+  lifeflower:
+    description: Manage life flowers.
+    usage: /lifeflower <new|pardon> <player>
+    permission: flowersmp.admin

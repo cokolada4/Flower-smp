@@ -19,6 +19,7 @@ import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.BlockPhysicsEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -42,7 +43,10 @@ public class FlowerListener implements Listener {
         this.ownerKey = new NamespacedKey(plugin, "flower_owner");
     }
 
-    private ItemStack getSpecialFlower(UUID ownerUuid) {
+    public NamespacedKey getFlowerKey() { return flowerKey; }
+    public NamespacedKey getOwnerKey() { return ownerKey; }
+
+    public ItemStack getSpecialFlower(UUID ownerUuid) {
         String materialName = plugin.getConfig().getString("flower-material", "POPPY");
         Material material = Material.matchMaterial(materialName);
         if (material == null) material = Material.POPPY;
@@ -56,7 +60,7 @@ public class FlowerListener implements Listener {
                 ownerName = owner.getName();
             }
 
-            String nameTemplate = plugin.getConfig().getString("flower-name-template", "&e%player%'s Life Flower");
+            String nameTemplate = plugin.getConfig().getString("flower-name-template", "&c%player%'s Life Flower");
             String displayName = nameTemplate.replace("%player%", ownerName);
 
             meta.displayName(LegacyComponentSerializer.legacyAmpersand().deserialize(displayName));
@@ -104,14 +108,6 @@ public class FlowerListener implements Listener {
         if (isSpecialFlower(item)) {
             UUID ownerUuid = getFlowerOwner(item);
             if (ownerUuid != null) {
-                if (plugin.hasPlacedFlower(ownerUuid)) {
-                    // This owner already has a flower placed somewhere.
-                    // We can either allow moving it or prevent multiple placements.
-                    // Requirement says "pick it up and place somewhere else", so we should allow it.
-                    // But we should probably remove the old one? Or just update the location.
-                    // If we update the location, the old block becomes a normal poppy?
-                    // To keep it simple and match "only one flower", let's update the location.
-                }
                 plugin.setFlowerPlaced(ownerUuid, event.getBlock().getLocation());
             }
         }
@@ -157,6 +153,20 @@ public class FlowerListener implements Listener {
     public void onPistonRetract(BlockPistonRetractEvent event) {
         for (Block block : event.getBlocks()) {
             handleFlowerRemoval(block);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onPhysics(BlockPhysicsEvent event) {
+        Block block = event.getBlock();
+        String materialName = plugin.getConfig().getString("flower-material", "POPPY");
+        Material flowerMaterial = Material.matchMaterial(materialName);
+        if (flowerMaterial == null) flowerMaterial = Material.POPPY;
+
+        if (block.getType() == flowerMaterial) {
+            if (!block.getBlockData().isSupported(block)) {
+                handleFlowerRemoval(block);
+            }
         }
     }
 

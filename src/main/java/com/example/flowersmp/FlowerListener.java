@@ -231,11 +231,20 @@ public class FlowerListener implements Listener {
     @EventHandler
     public void onRespawn(PlayerRespawnEvent event) {
         Player player = event.getPlayer();
-        if (plugin.isDead(player.getUniqueId())) {
+        UUID uuid = player.getUniqueId();
+
+        if (plugin.isDead(uuid)) {
             String message = plugin.getConfig().getString("death-kick-message", "You died without your flower being placed! You cannot respawn.");
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 player.kick(LegacyComponentSerializer.legacyAmpersand().deserialize(message));
             }, 1L);
+        } else {
+            // Player is alive (has a placed flower)
+            Location flowerLoc = plugin.getPlacedFlowerLocation(uuid);
+            if (flowerLoc != null) {
+                // Respawn on the flower
+                event.setRespawnLocation(flowerLoc.clone().add(0.5, 0.1, 0.5));
+            }
         }
     }
 }

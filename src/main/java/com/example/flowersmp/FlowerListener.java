@@ -8,6 +8,7 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.block.Block;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -20,7 +21,9 @@ import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.BlockPhysicsEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.entity.ItemDespawnEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerLoginEvent;
@@ -87,6 +90,14 @@ public class FlowerListener implements Listener {
         return UUID.fromString(uuidStr);
     }
 
+    private void notifyOwnerOfDestruction(UUID ownerUuid) {
+        Player owner = Bukkit.getPlayer(ownerUuid);
+        if (owner != null && owner.isOnline()) {
+            String message = plugin.getConfig().getString("flower-destroyed-message", "&cYour Life Flower has been destroyed! You are no longer safe.");
+            owner.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(message));
+        }
+    }
+
     @EventHandler
     public void onLogin(PlayerLoginEvent event) {
         if (plugin.isDead(event.getPlayer().getUniqueId())) {
@@ -113,53 +124,52 @@ public class FlowerListener implements Listener {
             UUID ownerUuid = getFlowerOwner(item);
             if (ownerUuid != null) {
                 plugin.setFlowerPlaced(ownerUuid, event.getBlock().getLocation());
-                // No revival here as per user's request.
             }
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
-        if (handleFlowerRemoval(event.getBlock())) {
+        if (handleFlowerRemoval(event.getBlock(), true)) {
             event.setDropItems(false);
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBurn(BlockBurnEvent event) {
-        handleFlowerRemoval(event.getBlock());
+        handleFlowerRemoval(event.getBlock(), false);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockExplode(BlockExplodeEvent event) {
         for (Block block : event.blockList()) {
-            handleFlowerRemoval(block);
+            handleFlowerRemoval(block, false);
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onEntityExplode(EntityExplodeEvent event) {
         for (Block block : event.blockList()) {
-            handleFlowerRemoval(block);
+            handleFlowerRemoval(block, false);
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onLiquid(BlockFromToEvent event) {
-        handleFlowerRemoval(event.getToBlock());
+        handleFlowerRemoval(event.getToBlock(), true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPistonExtend(BlockPistonExtendEvent event) {
         for (Block block : event.getBlocks()) {
-            handleFlowerRemoval(block);
+            handleFlowerRemoval(block, true);
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPistonRetract(BlockPistonRetractEvent event) {
         for (Block block : event.getBlocks()) {
-            handleFlowerRemoval(block);
+            handleFlowerRemoval(block, true);
         }
     }
 
@@ -168,20 +178,46 @@ public class FlowerListener implements Listener {
         Block block = event.getBlock();
         if (block.getType() == flowerMaterial) {
             if (!block.getBlockData().isSupported(block)) {
-                handleFlowerRemoval(block);
+                handleFlowerRemoval(block, true);
             }
         }
     }
 
-    private boolean handleFlowerRemoval(Block block) {
+    private boolean handleFlowerRemoval(Block block, boolean drop) {
         UUID ownerUuid = plugin.getOwnerOfLocation(block.getLocation());
         if (ownerUuid != null) {
             plugin.setFlowerPlaced(ownerUuid, null);
-            block.getWorld().dropItemNaturally(block.getLocation(), getSpecialFlower(ownerUuid));
+            if (drop) {
+                block.getWorld().dropItemNaturally(block.getLocation(), getSpecialFlower(ownerUuid));
+            } else {
+                notifyOwnerOfDestruction(ownerUuid);
+            }
             block.setType(Material.AIR);
             return true;
         }
         return false;
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onItemDamage(EntityDamageEvent event) {
+        if (event.getEntity() instanceof Item item) {
+            if (isSpecialFlower(item.getItemStack())) {
+                UUID ownerUuid = getFlowerOwner(item.getItemStack());
+                if (ownerUuid != null) {
+                    notifyOwnerOfDestruction(ownerUuid);
+                }
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onItemDespawn(ItemDespawnEvent event) {
+        if (isSpecialFlower(event.getEntity().getItemStack())) {
+            UUID ownerUuid = getFlowerOwner(event.getEntity().getItemStack());
+            if (ownerUuid != null) {
+                notifyOwnerOfDestruction(ownerUuid);
+            }
+        }
     }
 
     @EventHandler

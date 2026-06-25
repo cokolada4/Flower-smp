@@ -6,3 +6,5 @@ flower-name-template: "&c%player%'s Life Poppy"
 death-kick-message: "You died without your flower being placed! You cannot respawn."
 # Message shown when a player tries to join but is currently dead.
 login-deny-message: "You are currently dead because your flower was not placed when you died."
+# Message sent when a player's Life Flower is destroyed (burned, despawned, etc.)
+flower-destroyed-message: "&cYour Life Flower has been destroyed! You are no longer safe."

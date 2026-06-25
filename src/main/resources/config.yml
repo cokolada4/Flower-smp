@@ -1,7 +1,7 @@
 # The material type for the flower. Use Bukkit Material names (e.g., POPPY, DANDELION, CORNFLOWER).
 flower-material: POPPY
-# The display name of the special flower.
-flower-name: "&cYour Life Flower"
+# The display name template of the special flower. Use %player% for the player's name.
+flower-name-template: "&c%player%'s Life Flower"
 # Message shown when a player is kicked because they died without a flower placed.
 death-kick-message: "You died without your flower being placed! You cannot respawn."
 # Message shown when a player tries to join but is currently dead.

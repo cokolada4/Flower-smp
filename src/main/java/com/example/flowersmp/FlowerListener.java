@@ -6,6 +6,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -33,13 +34,15 @@ public class FlowerListener implements Listener {
 
     private final FlowerSMP plugin;
     private final NamespacedKey flowerKey;
+    private final NamespacedKey ownerKey;
 
     public FlowerListener(FlowerSMP plugin) {
         this.plugin = plugin;
         this.flowerKey = new NamespacedKey(plugin, "special_flower");
+        this.ownerKey = new NamespacedKey(plugin, "flower_owner");
     }
 
-    private ItemStack getSpecialFlower() {
+    private ItemStack getSpecialFlower(UUID ownerUuid) {
         String materialName = plugin.getConfig().getString("flower-material", "POPPY");
         Material material = Material.matchMaterial(materialName);
         if (material == null) material = Material.POPPY;
@@ -47,9 +50,18 @@ public class FlowerListener implements Listener {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
-            String name = plugin.getConfig().getString("flower-name", "&cYour Life Flower");
-            meta.displayName(LegacyComponentSerializer.legacyAmpersand().deserialize(name));
+            String ownerName = "Unknown";
+            OfflinePlayer owner = Bukkit.getOfflinePlayer(ownerUuid);
+            if (owner.getName() != null) {
+                ownerName = owner.getName();
+            }
+
+            String nameTemplate = plugin.getConfig().getString("flower-name-template", "&e%player%'s Life Flower");
+            String displayName = nameTemplate.replace("%player%", ownerName);
+
+            meta.displayName(LegacyComponentSerializer.legacyAmpersand().deserialize(displayName));
             meta.getPersistentDataContainer().set(flowerKey, PersistentDataType.STRING, "true");
+            meta.getPersistentDataContainer().set(ownerKey, PersistentDataType.STRING, ownerUuid.toString());
             item.setItemMeta(meta);
         }
         return item;
@@ -58,6 +70,13 @@ public class FlowerListener implements Listener {
     private boolean isSpecialFlower(ItemStack item) {
         if (item == null || !item.hasItemMeta()) return false;
         return item.getItemMeta().getPersistentDataContainer().has(flowerKey, PersistentDataType.STRING);
+    }
+
+    private UUID getFlowerOwner(ItemStack item) {
+        if (!isSpecialFlower(item)) return null;
+        String uuidStr = item.getItemMeta().getPersistentDataContainer().get(ownerKey, PersistentDataType.STRING);
+        if (uuidStr == null) return null;
+        return UUID.fromString(uuidStr);
     }
 
     @EventHandler
@@ -73,27 +92,28 @@ public class FlowerListener implements Listener {
         Player player = event.getPlayer();
         if (plugin.isDead(player.getUniqueId())) return;
 
-        if (!plugin.hasPlacedFlower(player.getUniqueId()) && !hasFlowerInInventory(player)) {
-            player.getInventory().addItem(getSpecialFlower());
+        if (!plugin.hasReceivedFlower(player.getUniqueId())) {
+            player.getInventory().addItem(getSpecialFlower(player.getUniqueId()));
+            plugin.setReceivedFlower(player.getUniqueId(), true);
         }
-    }
-
-    private boolean hasFlowerInInventory(Player player) {
-        for (ItemStack item : player.getInventory().getContents()) {
-            if (isSpecialFlower(item)) return true;
-        }
-        return false;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent event) {
-        if (isSpecialFlower(event.getItemInHand())) {
-            UUID uuid = event.getPlayer().getUniqueId();
-            if (plugin.hasPlacedFlower(uuid)) {
-                event.setCancelled(true);
-                return;
+        ItemStack item = event.getItemInHand();
+        if (isSpecialFlower(item)) {
+            UUID ownerUuid = getFlowerOwner(item);
+            if (ownerUuid != null) {
+                if (plugin.hasPlacedFlower(ownerUuid)) {
+                    // This owner already has a flower placed somewhere.
+                    // We can either allow moving it or prevent multiple placements.
+                    // Requirement says "pick it up and place somewhere else", so we should allow it.
+                    // But we should probably remove the old one? Or just update the location.
+                    // If we update the location, the old block becomes a normal poppy?
+                    // To keep it simple and match "only one flower", let's update the location.
+                }
+                plugin.setFlowerPlaced(ownerUuid, event.getBlock().getLocation());
             }
-            plugin.setFlowerPlaced(uuid, event.getBlock().getLocation());
         }
     }
 
@@ -144,7 +164,7 @@ public class FlowerListener implements Listener {
         UUID ownerUuid = plugin.getOwnerOfLocation(block.getLocation());
         if (ownerUuid != null) {
             plugin.setFlowerPlaced(ownerUuid, null);
-            block.getWorld().dropItemNaturally(block.getLocation(), getSpecialFlower());
+            block.getWorld().dropItemNaturally(block.getLocation(), getSpecialFlower(ownerUuid));
             block.setType(Material.AIR);
         }
     }

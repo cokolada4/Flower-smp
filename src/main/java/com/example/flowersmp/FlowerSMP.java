@@ -21,6 +21,7 @@ public class FlowerSMP extends JavaPlugin {
     private FileConfiguration dataConfig;
     private Map<UUID, Location> placedFlowers = new HashMap<>();
     private Set<UUID> deadPlayers = new HashSet<>();
+    private Set<UUID> receivedFlowers = new HashSet<>();
 
     @Override
     public void onEnable() {
@@ -67,6 +68,13 @@ public class FlowerSMP extends JavaPlugin {
                 deadPlayers.add(UUID.fromString(uuidStr));
             }
         }
+
+        receivedFlowers.clear();
+        if (dataConfig.contains("received")) {
+            for (String uuidStr : dataConfig.getStringList("received")) {
+                receivedFlowers.add(UUID.fromString(uuidStr));
+            }
+        }
     }
 
     public void saveData() {
@@ -75,6 +83,7 @@ public class FlowerSMP extends JavaPlugin {
             dataConfig.set("placed." + entry.getKey().toString(), locationToString(entry.getValue()));
         }
         dataConfig.set("dead", deadPlayers.stream().map(UUID::toString).toList());
+        dataConfig.set("received", receivedFlowers.stream().map(UUID::toString).toList());
         try {
             dataConfig.save(dataFile);
         } catch (IOException e) {
@@ -126,6 +135,19 @@ public class FlowerSMP extends JavaPlugin {
             deadPlayers.add(uuid);
         } else {
             deadPlayers.remove(uuid);
+        }
+        saveData();
+    }
+
+    public boolean hasReceivedFlower(UUID uuid) {
+        return receivedFlowers.contains(uuid);
+    }
+
+    public void setReceivedFlower(UUID uuid, boolean received) {
+        if (received) {
+            receivedFlowers.add(uuid);
+        } else {
+            receivedFlowers.remove(uuid);
         }
         saveData();
     }

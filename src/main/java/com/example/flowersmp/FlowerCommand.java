@@ -69,12 +69,16 @@ public class FlowerCommand implements CommandExecutor {
                 }
             }
 
-            // 3. Give new flower to the operator
+            // 3. Give new flower to the operator or target
+            ItemStack newFlower = listener.getSpecialFlower(uuid);
             if (sender instanceof Player op) {
-                op.getInventory().addItem(listener.getSpecialFlower(uuid));
+                op.getInventory().addItem(newFlower);
                 sender.sendMessage("§aNew Life Flower for " + targetName + " has been given to you.");
+            } else if (target.isOnline() && target.getPlayer() != null) {
+                target.getPlayer().getInventory().addItem(newFlower);
+                sender.sendMessage("§aNew Life Flower for " + targetName + " has been given to them (online).");
             } else {
-                sender.sendMessage("§cThis command must be run by a player to receive the item.");
+                sender.sendMessage("§cCannot give flower: target is offline and command was run from console.");
             }
             return true;
 

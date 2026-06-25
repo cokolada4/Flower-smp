@@ -36,22 +36,26 @@ public class FlowerListener implements Listener {
     private final FlowerSMP plugin;
     private final NamespacedKey flowerKey;
     private final NamespacedKey ownerKey;
+    private Material flowerMaterial;
 
     public FlowerListener(FlowerSMP plugin) {
         this.plugin = plugin;
         this.flowerKey = new NamespacedKey(plugin, "special_flower");
         this.ownerKey = new NamespacedKey(plugin, "flower_owner");
+        updateFlowerMaterial();
+    }
+
+    public void updateFlowerMaterial() {
+        String materialName = plugin.getConfig().getString("flower-material", "POPPY");
+        flowerMaterial = Material.matchMaterial(materialName);
+        if (flowerMaterial == null) flowerMaterial = Material.POPPY;
     }
 
     public NamespacedKey getFlowerKey() { return flowerKey; }
     public NamespacedKey getOwnerKey() { return ownerKey; }
 
     public ItemStack getSpecialFlower(UUID ownerUuid) {
-        String materialName = plugin.getConfig().getString("flower-material", "POPPY");
-        Material material = Material.matchMaterial(materialName);
-        if (material == null) material = Material.POPPY;
-
-        ItemStack item = new ItemStack(material);
+        ItemStack item = new ItemStack(flowerMaterial);
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
             String ownerName = "Unknown";
@@ -109,13 +113,16 @@ public class FlowerListener implements Listener {
             UUID ownerUuid = getFlowerOwner(item);
             if (ownerUuid != null) {
                 plugin.setFlowerPlaced(ownerUuid, event.getBlock().getLocation());
+                // No revival here as per user's request.
             }
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
-        handleFlowerRemoval(event.getBlock());
+        if (handleFlowerRemoval(event.getBlock())) {
+            event.setDropItems(false);
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -159,10 +166,6 @@ public class FlowerListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPhysics(BlockPhysicsEvent event) {
         Block block = event.getBlock();
-        String materialName = plugin.getConfig().getString("flower-material", "POPPY");
-        Material flowerMaterial = Material.matchMaterial(materialName);
-        if (flowerMaterial == null) flowerMaterial = Material.POPPY;
-
         if (block.getType() == flowerMaterial) {
             if (!block.getBlockData().isSupported(block)) {
                 handleFlowerRemoval(block);
@@ -170,13 +173,15 @@ public class FlowerListener implements Listener {
         }
     }
 
-    private void handleFlowerRemoval(Block block) {
+    private boolean handleFlowerRemoval(Block block) {
         UUID ownerUuid = plugin.getOwnerOfLocation(block.getLocation());
         if (ownerUuid != null) {
             plugin.setFlowerPlaced(ownerUuid, null);
             block.getWorld().dropItemNaturally(block.getLocation(), getSpecialFlower(ownerUuid));
             block.setType(Material.AIR);
+            return true;
         }
+        return false;
     }
 
     @EventHandler
